@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Management System</title>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:Arial,sans-serif;background:#aed0f3;color:#333}
+        body.dashboard-active{padding-top:115px}
+
+        .center{display:flex;justify-content:center;align-items:center;min-height:100vh;background:#aed0f3}
+        .login-box{background:#fff;padding:30px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1);width:100%;max-width:400px}
+        .login-box h2{text-align:center;margin-bottom:-10px;color:#2c3e50}
+
+        input,select,button{width:100%;padding:10px;margin:8px 0;border:1px solid #ddd;border-radius:4px;font-size:16px;min-width:0}
+        button{background:#3498db;color:#fff;border:none;cursor:pointer;font-weight:bold}
+        button:hover{background:#2980b9}
+        .btn-sm{width:auto;padding:5px 10px;font-size:14px;margin:2px;border-radius:8px}
+        .btn-danger{background:#e74c3c}.btn-danger:hover{background:#c0392b}
+        .btn-success{background:#2ecc71}.btn-success:hover{background:#27ae60}
+        .btn-info{background:#17a2b8}.btn-info:hover{background:#138496}
+        .btn-warning{background:#f39c12}.btn-warning:hover{background:#d68910}
+        .btn-muted{background:#607d8b}.btn-muted:hover{background:#4f6873}
+        .hidden{display:none}
+
+        .header{background:#2c3e50;color:#fff;padding:15px;position:fixed;top:0;width:100%;z-index:1000}
+        .header-content{display:flex;justify-content:space-between;align-items:center;max-width:1200px;margin:0 auto}
+        .header-left{font-size:20px;font-weight:bold;flex:1}
+        .header-center{font-size:18px;font-weight:bold;text-align:center;flex:1}
+        .header-right{flex:1;text-align:right}
+        .card{background:#fff;padding:15px;margin-bottom:15px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+        table{width:100%;border-collapse:collapse;margin-top:10px;font-size:14px}
+        th,td{border:1px solid #ddd;padding:8px;text-align:left}
+        th{background:#ecf0f1;position:sticky;top:0px}
+        .tabs{margin-bottom:15px;position:fixed;top:62px;width:100%;background:#34495e;padding:8px 15px;z-index:999;box-shadow:0 2px 4px rgba(0,0,0,0.2);display:flex;gap:5px;overflow-x:auto}
+        .tabs button{width:auto;margin-right:0;background:#95a5a6;white-space:nowrap;flex:0 0 auto}
+        .tabs button.active{background:#3498db}
+
+        .status-New{background:#d4edda}.status-Working{background:#d1ecf1}
+        .status-Needs-Repair{background:#fff3cd}.status-Broken-Down{background:#f8d7da}
+        .status-Decommissioned{background:#e2e3e5}
+        .status-Out-of-Order-and-Should-be-Replaced{background:#f5c6cb}
+        .status-In-Use-but-Need-Repair{background:#ffe8a1}
+        .status-Good-but-Not-in-Use{background:#bee5eb}
+        .status-In-Use-but-Need-Calibration{background:#d6d8fb}
+        .status-Not-Working{background:#f8d7da}.status-Under-Repair{background:#fff3cd}
+        .status-Repaired-Wait{background:#d1ecf1}.status-Soon-to-Decom{background:#e2e3e5}
+        .form-row{display:flex;gap:8px;flex-wrap:wrap}
+        .form-row input,.form-row select{flex:1 1 200px;margin:4px 0}
+        .table-wrap{overflow-x:auto;max-height:600px;-webkit-overflow-scrolling:touch}
+        .table-wrap table{min-width:900px}
+        .pagination{display:flex;justify-content:center;gap:5px;margin-top:10px;align-items:center}
+        .pagination button{width:auto;padding:5px 10px}
+        .filter-row{background:#f8f9fa;padding:10px;border-radius:4px;margin-bottom:10px}
+        .action-row{display:flex;gap:5px;flex-wrap:wrap}
+        .summary-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin:0 0 15px}
+        .summary-card{background:#f8fafc;border:1px solid #d7e3ef;border-left:4px solid #3498db;border-radius:6px;padding:12px}
+        .summary-card strong{display:block;font-size:24px;color:#22313f;line-height:1}
+        .summary-card span{display:block;color:#5d6d7e;font-size:13px;margin-top:6px}
+        .audit-pill{display:inline-block;background:#eef5fb;border:1px solid #cfe0ef;border-radius:999px;padding:3px 8px;font-size:12px}
+        #syncStatus{position:fixed;top:10px;right:10px;padding:10px 16px;border-radius:6px;color:white;z-index:9999;font-size:14px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none;transition:opacity 0.3s}
+        .field-error{color:#e74c3c;font-size:12px;margin:-4px 0 4px 0;display:none}
+        .pin-box{display:inline-block;width:40px;height:45px;text-align:center;font-size:22px;font-weight:bold;border:2px solid #3498db;border-radius:6px;margin:3px}
+        .pin-box:focus{border-color:#2ecc71;outline:none}
+
+        @media(max-width:768px){
+            th,td{padding:5px;font-size:12px}
+            .center{align-items:flex-start;padding:14px}
+            .header-content{flex-direction:column;gap:5px}
+            .header-left,.header-center,.header-right{text-align:center;font-size:14px}
+            .header,.tabs{position:static;width:100%}
+            .tabs{padding:8px;box-shadow:none}
+            body.dashboard-active{padding-top:0}
+            .login-box{padding:20px;max-width:100%}
+            .card{padding:10px}
+            .form-row{flex-direction:column}
+            .form-row input,.form-row select{flex:1 1 100%}
+            .action-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+            .action-row .btn-sm,.filter-row .btn-sm{width:100%;margin:2px 0}
+            .pagination{flex-wrap:wrap}
+            .summary-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}
+        }
+        @media(max-width:420px){
+            .summary-grid{grid-template-columns:1fr}
+            .action-row{grid-template-columns:1fr}
+            input,select,button{font-size:15px}
+        }
+    </style>
+</head>
+<body>
+
+<div id="syncStatus"></div>
+
+<!-- LOGIN PAGE -->
+<div id="loginPage" class="center">
+    <div class="login-box">
+        <h2>UGANDA POLICE HEALTH SERVICE INVENTORY SYSTEM</h2>
+        <input type="text" id="loginUser" placeholder="Username" autocomplete="username">
+        <input type="password" id="loginPass" placeholder="Password (min 6 characters)" autocomplete="current-password">
+        <button onclick="login()">Login</button>
+        <button onclick="showUserRegister()" style="background:#2ecc71;margin-top:5px">Create User Account</button>
+        <p id="loginMsg" style="color:red;margin-top:10px"></p>
+        <p style="text-align:center;margin-top:10px"><a href="#" onclick="showForgotPassword()" style="color:#3498db;text-decoration:none;font-size:14px">Forgot Password? Reset via Phone</a></p>
+    </div>
+</div>
+
+<!-- FORGOT PASSWORD PAGE -->
+<div id="forgotPasswordPage" class="center hidden">
+    <div class="login-box">
+        <h2 style="text-align:center;margin-bottom:15px">🔐 Reset Password</h2>
+        <div id="forgotStep1">
+            <p style="font-size:14px;color:#555;margin-bottom:15px;text-align:center">Enter your username to receive a reset PIN on your registered phone number.</p>
+            <input type="text" id="forgotUsername" placeholder="Enter your username *">
+            <button onclick="sendResetPin()" style="margin-top:5px">Send Reset PIN</button>
+            <button onclick="showLogin()" style="background:#95a5a6;margin-top:5px">Back to Login</button>
+            <p id="forgotMsg" style="color:red;margin-top:10px;text-align:center"></p>
+        </div>
+        <div id="forgotStep2" class="hidden">
+            <p style="font-size:14px;color:#555;margin-bottom:5px;text-align:center">A 6-digit PIN has been sent to:</p>
+            <p id="forgotPhoneDisplay" style="font-weight:bold;font-size:16px;margin-bottom:15px;color:#2c3e50;text-align:center"></p>
+            <div style="text-align:center;margin:10px 0">
+                <input class="pin-box" id="pin1" maxlength="1" oninput="pinNext(this,'pin2')" onkeydown="pinBack(event,this,'')">
+                <input class="pin-box" id="pin2" maxlength="1" oninput="pinNext(this,'pin3')" onkeydown="pinBack(event,this,'pin1')">
+                <input class="pin-box" id="pin3" maxlength="1" oninput="pinNext(this,'pin4')" onkeydown="pinBack(event,this,'pin2')">
+                <input class="pin-box" id="pin4" maxlength="1" oninput="pinNext(this,'pin5')" onkeydown="pinBack(event,this,'pin3')">
+                <input class="pin-box" id="pin5" maxlength="1" oninput="pinNext(this,'pin6')" onkeydown="pinBack(event,this,'pin4')">
+                <input class="pin-box" id="pin6" maxlength="1" oninput="pinNext(this,'')" onkeydown="pinBack(event,this,'pin5')">
+            </div>
+            <p id="pinMsg" style="color:red;text-align:center;margin:5px 0"></p>
+            <button onclick="verifyPin()" style="margin-top:5px">Verify PIN</button>
+            <button onclick="resendPin()" style="background:#f39c12;margin-top:5px">Resend PIN</button>
+        </div>
+        <div id="forgotStep3" class="hidden">
+            <p style="font-size:14px;color:#27ae60;margin-bottom:15px;font-weight:bold;text-align:center">✅ PIN verified! Set your new password.</p>
+            <input type="password" id="newPassword" placeholder="New Password (min 6 characters) *">
+            <input type="password" id="confirmPassword" placeholder="Confirm New Password *" style="margin-top:5px">
+            <p id="resetMsg" style="color:red;margin-top:5px;text-align:center"></p>
+            <button onclick="resetPassword()" style="margin-top:5px">Reset Password</button>
+        </div>
+    </div>
+</div>
+
+<!-- USER REGISTER PAGE -->
+<div id="userRegisterPage" class="center hidden">
+    <div class="login-box">
+        <h2>Create User Account</h2>
+        <input type="text" id="regUserName" placeholder="Full Name (letters only) *">
+        <div class="field-error" id="regUserNameErr">Name must not contain digits</div>
+        <input type="text" id="regUserUsername" placeholder="Username *">
+        <input type="password" id="regUserPass" placeholder="Password (min 6 characters) *">
+        <div class="field-error" id="regUserPassErr">Password must be at least 6 characters</div>
+        <input type="text" id="regUserPhone" placeholder="Phone Number (07XXXXXXXX) *" maxlength="10">
+        <div class="field-error" id="regUserPhoneErr">Phone must be 10 digits starting with 07</div>
+        <select id="regUserFacility"><option value="">Select Facility *</option></select>
+        <button onclick="registerUser()">Create Account</button>
+        <button onclick="showLogin()" style="background:#95a5a6">Back to Login</button>
+    </div>
+</div>
+
+<!-- ADMIN REGISTER PAGE -->
+<div id="adminRegisterPage" class="center hidden">
+    <div class="login-box">
+        <h2>Create Admin Account</h2>
+        <input type="text" id="regAdminName" placeholder="Full Name (letters only) *">
+        <div class="field-error" id="regAdminNameErr">Name must not contain digits</div>
+        <input type="text" id="regAdminUsername" placeholder="Username *">
+        <input type="password" id="regAdminPass" placeholder="Password (min 6 characters) *">
+        <div class="field-error" id="regAdminPassErr">Password must be at least 6 characters</div>
+        <input type="text" id="regAdminPhone" placeholder="Phone Number (07XXXXXXXX) *" maxlength="10">
+        <div class="field-error" id="regAdminPhoneErr">Phone must be 10 digits starting with 07</div>
+        <select id="regAdminFacility"><option value="">Select Facility *</option></select>
+        <button onclick="registerAdmin()">Create Admin</button>
+        <button onclick="showDashboard()" style="background:#95a5a6">Back</button>
+    </div>
+</div>
+
+<!-- HEALTH WORKER PAGE -->
+<div id="workerPage" class="center hidden">
+    <div class="login-box" style="max-width:700px">
+        <h2>Health Workers - <span id="workerFacilityName"></span></h2>
+        <div style="margin:10px 0;display:flex;gap:10px;flex-wrap:wrap">
+            <input type="text" id="workerPageSearch" placeholder="Search name, title, or phone..." oninput="loadWorkerPage()">
+            <button class="btn-sm" onclick="resetWorkerPageFilters()" style="width:auto">Reset</button>
+            <button class="btn-sm" onclick="printWorkerPage()" style="width:auto">Print / PDF</button>
+        </div>
+        <div class="form-row">
+            <input type="text" id="workerName" placeholder="Full Name (letters only) *">
+            <input type="text" id="workerTitle" placeholder="Title (letters only) *">
+        </div>
+        <div class="form-row">
+            <input type="text" id="workerResp" placeholder="Responsibility (letters only) *">
+            <input type="text" id="workerTel" placeholder="Telephone (07XXXXXXXX) *" maxlength="10">
+        </div>
+        <div class="field-error" id="workerNameErr">Name must not contain digits</div>
+        <div class="field-error" id="workerTitleErr">Title must not contain digits</div>
+        <div class="field-error" id="workerRespErr">Responsibility must not contain digits</div>
+        <div class="field-error" id="workerTelErr">Phone must be 10 digits starting with 07</div>
+        <button onclick="addWorker()">+ Add Health Worker</button>
+        <button onclick="showDashboard()" style="background:#95a5a6">Back to Dashboard</button>
+        <h3 style="margin-top:20px">Registered Workers in This Facility</h3>
+        <div class="table-wrap" style="max-height:300px">
+            <table>
+                <thead><tr><th>Name</th><th>Title</th><th>Responsibility</th><th>Telephone</th><th>Action</th></tr></thead>
+                <tbody id="workerPageTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="hidden">
+    <div class="header">
+        <div class="header-content">
+            <div class="header-left" id="dashFacilityName">Hospital AMS</div>
+            <div class="header-center">UGANDA POLICE HEALTH SERVICE</div>
+            <div class="header-right">
+                <span id="currentUser"></span> | <span id="currentRole"></span> |
+                <button class="btn-sm btn-danger" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="tabs" id="mainTabs">
+        <button class="tabBtn active" onclick="showTab('assets',this)">📦 Assets</button>
+        <button class="tabBtn" id="tabUsers" onclick="showTab('users',this)">👑 Users</button>
+        <button class="tabBtn" onclick="showTab('facilities',this)">🏥 Facilities</button>
+        <button class="tabBtn" onclick="showTab('departments',this)">🏢 Departments</button>
+        <button class="tabBtn" onclick="showTab('workers',this)">👩‍⚕️ Health Workers</button>
+        <button class="tabBtn" id="tabAudit" onclick="showTab('audit',this)">📋 Audit Log</button>
+    </div>
+
+    <div style="padding:15px;max-width:1200px;margin:0 auto">
+
+        <!-- ASSETS TAB -->
+        <div id="assetsTab" class="card">
+            <h3>📦 Assets</h3>
+            <div class="summary-grid">
+                <div class="summary-card"><strong id="statAssets">0</strong><span>Total assets</span></div>
+                <div class="summary-card"><strong id="statWorking">0</strong><span>Working</span></div>
+                <div class="summary-card"><strong id="statAttention">0</strong><span>Need attention</span></div>
+                <div class="summary-card"><strong id="statWorkers">0</strong><span>Health workers</span></div>
+            </div>
+            <div class="action-row" id="assetActionRow">
+                <button class="btn-sm btn-success" onclick="toggleAddAsset()">+ Add Asset</button>
+                <button class="btn-sm btn-info" onclick="showWorkerPage()">Health Workers</button>
+                <button class="btn-sm btn-muted" onclick="exportAssetsCsv()">Export CSV</button>
+                <button class="btn-sm btn-muted" onclick="exportAssetsExcel()">Export Excel</button>
+                <button class="btn-sm btn-muted" id="btnBackup" onclick="backupData()">Backup Data</button>
+                <button class="btn-sm btn-warning" id="btnRestore" onclick="document.getElementById('restoreFile').click()">Restore Data</button>
+                <input id="restoreFile" class="hidden" type="file" accept="application/json" onchange="restoreData(event)">
+            </div>
+
+            <div id="addAssetForm" class="hidden card">
+                <div class="form-row">
+                    <input id="aRef" placeholder="Reference Number * (Must be unique)" onblur="checkRefNumber()">
+                    <input id="aName" placeholder="Equipment Name *">
+                    <input id="aType" placeholder="Equipment Type">
+                </div>
+                <div class="form-row">
+                    <select id="aFacility" onchange="filterDeptsByFacility()"><option value="">Select Facility *</option></select>
+                    <select id="aDept"><option value="">Select Department *</option></select>
+                    <input id="aRoom" placeholder="Room/Location">
+                </div>
+                <div class="form-row">
+                    <input id="aModel" placeholder="Model">
+                    <input id="aSerial" placeholder="Serial Number">
+                    <input id="aMfr" placeholder="Manufacturer">
+                </div>
+                <div class="form-row">
+                    <input id="aQty" type="number" value="1" min="1" placeholder="Qty (min 1)">
+                    <select id="aCondition">
+                        <option value="">Select Condition *</option>
+                        <option>New</option><option>Good</option><option>Fair</option><option>Poor</option>
+                    </select>
+                    <select id="aStatus">
+                        <option value="">Select Status *</option>
+                        <option>New</option><option>Working</option><option>Not Working</option>
+                        <option>Needs Repair</option><option>Under Repair</option>
+                        <option>Repaired-Wait</option><option>Broken Down</option>
+                        <option>Decommissioned</option><option>Soon to Decom</option>
+                        <option>Out of Order and Should be Replaced</option>
+                        <option>In Use but Need Repair</option>
+                        <option>Good but Not in Use</option>
+                        <option>In Use but Need Calibration</option>
+                    </select>
+                </div>
+                <button onclick="addAsset()">💾 Save Asset</button>
+                <button onclick="toggleAddAsset()" style="background:#95a5a6;width:auto;padding:10px 20px;margin-left:8px">Cancel</button>
+            </div>
+
+            <div class="filter-row">
+                <strong>🔍 Filter:</strong>
+                <div class="form-row">
+                    <select id="filterFacility" onchange="loadAssets()"><option value="">All Facilities</option></select>
+                    <select id="filterDept" onchange="loadAssets()"><option value="">All Departments</option></select>
+                    <select id="filterStatus" onchange="loadAssets()">
+                        <option value="">All Status</option>
+                        <option>New</option><option>Working</option><option>Not Working</option>
+                        <option>Needs Repair</option><option>Under Repair</option>
+                        <option>Repaired-Wait</option><option>Broken Down</option>
+                        <option>Decommissioned</option><option>Soon to Decom</option>
+                        <option>Out of Order and Should be Replaced</option>
+                        <option>In Use but Need Repair</option>
+                        <option>Good but Not in Use</option>
+                        <option>In Use but Need Calibration</option>
+                    </select>
+                    <select id="filterCondition" onchange="loadAssets()">
+                        <option value="">All Conditions</option>
+                        <option>New</option><option>Good</option><option>Fair</option><option>Poor</option>
+                    </select>
+                    <input id="filterSearch" placeholder="Search name/ref..." onkeyup="loadAssets()" style="flex:0 1 180px">
+                    <button class="btn-sm" onclick="resetFilters()" style="width:auto">Reset</button>
+                    <button class="btn-sm btn-info" onclick="printAssets()" style="width:auto">🖨️ Report</button>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table id="assetTable">
+                    <thead><tr>
+                        <th>Ref#</th><th>Equipment</th><th>Type</th><th>Facility</th><th>Dept</th>
+                        <th>Room</th><th>Model</th><th>Serial#</th><th>Mfr</th><th>Qty</th>
+                        <th>Date Entered</th><th>Condition</th><th>Status</th><th>Entered By</th><th>Action</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="pagination" id="assetPagination"></div>
+        </div>
+
+        <!-- USERS TAB -->
+        <div id="usersTab" class="card hidden">
+            <h3>👑 Users <button class="btn-sm btn-success" id="addAdminBtn" onclick="showAdminRegister()" style="width:auto">+ Add Admin</button></h3>
+            <table id="userTable">
+                <thead><tr><th>Username</th><th>Role</th><th>Facility</th><th>Phone</th><th>Action</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- FACILITIES TAB -->
+        <div id="facilitiesTab" class="card hidden">
+            <h3>🏥 Facilities</h3>
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+                <input id="newFacility" placeholder="New Hospital Name" style="flex:1">
+                <button class="btn-sm btn-success" id="addFacilityBtn" onclick="addFacility()" style="width:auto">+ Add Facility</button>
+            </div>
+            <input id="filterFacilityName" placeholder="Search facility..." onkeyup="loadFacilities()" style="max-width:220px;margin-bottom:8px">
+            <table id="facilityTable">
+                <thead><tr><th>#</th><th>Facility Name</th><th>Sync</th><th>Action</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- DEPARTMENTS TAB -->
+        <div id="departmentsTab" class="card hidden">
+            <h3>🏢 Departments</h3>
+            <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+                <input id="newDept" placeholder="New Department Name" style="flex:1;min-width:200px">
+                <select id="deptFacility" style="flex:0 1 220px"><option value="">Select Facility *</option></select>
+                <button class="btn-sm btn-success" onclick="addDepartment()" style="width:auto">+ Add Department</button>
+            </div>
+            <table id="deptTable">
+                <thead><tr><th>Department</th><th>Facility</th><th>Sync</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- HEALTH WORKERS TAB -->
+        <div id="workersTab" class="card hidden">
+            <h3>👩‍⚕️ Health Workers</h3>
+            <div class="filter-row">
+                <strong>Filter:</strong>
+                <div class="form-row">
+                    <select id="filterWorkerFacility" onchange="loadWorkers()"><option value="">All Facilities</option></select>
+                    <input id="filterWorkerName" placeholder="Search name..." onkeyup="loadWorkers()">
+                    <input id="filterWorkerTitle" placeholder="Search title..." onkeyup="loadWorkers()">
+                    <input id="filterWorkerResp" placeholder="Search responsibility..." onkeyup="loadWorkers()">
+                    <button class="btn-sm" onclick="resetWorkerFilters()" style="width:auto">Reset</button>
+                    <button class="btn-sm btn-info" onclick="printWorkersDashboard()" style="width:auto">🖨️ Print</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table id="workerTable">
+                    <thead><tr><th>Name</th><th>Title</th><th>Responsibility</th><th>Telephone</th><th>Facility</th><th>Action</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- AUDIT TAB -->
+        <div id="auditTab" class="card hidden">
+            <h3>📋 Audit Log</h3>
+            <div class="filter-row">
+                <div class="form-row">
+                    <input id="filterAuditSearch" placeholder="Search activity..." onkeyup="loadAudit()">
+                    <button class="btn-sm" onclick="resetAuditFilters()" style="width:auto">Reset</button>
+                    <button class="btn-sm btn-muted" onclick="exportAuditCsv()" style="width:auto">Export Audit CSV</button>
+                    <button class="btn-sm btn-muted" onclick="exportAuditExcel()" style="width:auto">Export Audit Excel</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table id="auditTable">
+                    <thead><tr><th>Date/Time</th><th>User</th><th>Action</th><th>Record</th><th>Details</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+const DB = {
+    get: key => { try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; } },
+    set: (key, val) => localStorage.setItem(key, JSON.stringify(val)),
+    init: () => {
+        if(!localStorage.getItem('facilities')) DB.set('facilities', [
+            {id:1,name:'Naguru Hospital',_sync:true},{id:2,name:'Kibuli Hospital',_sync:true}
+        ]);
+        if(!localStorage.getItem('departments')) DB.set('departments', [
+            {id:1,name:'Store',facilityId:1,_sync:true},{id:2,name:'ICU',facilityId:1,_sync:true},
+            {id:3,name:'Theatre',facilityId:1,_sync:true},{id:4,name:'Radiology',facilityId:2,_sync:true}
+        ]);
+        if(!localStorage.getItem('users')) DB.set('users', [
+            {id:1,username:'superadmin',passwordHash:'7b856377daadaca3bf186f385e749037dc61073e2e3e684eb41cc2eb8735fc27',role:'Super Admin',facilityId:null,telephone:'',_sync:true}
+        ]);
+        if(!localStorage.getItem('assets')) DB.set('assets', []);
+        if(!localStorage.getItem('workers')) DB.set('workers', []);
+        if(!localStorage.getItem('audit')) DB.set('audit', []);
+        if(!localStorage.getItem('resetPins')) DB.set('resetPins', []);
+    }
+};
+
+let currentUser = null;
+let currentPage = 1;
+const itemsPerPage = 10;
+const PASSWORD_SALT = 'UPHS-AMS-v1';
+
+// ===== VALIDATION =====
+function hasDigits(str){return /\d/.test(str);}
+function isValidUgPhone(phone){return /^07\d{8}$/.test(String(phone).replace(/\s/g,''));}
+
+function validateNoDigits(value,fieldName,errorId){
+    let el=document.getElementById(errorId);
+    if(hasDigits(value)){if(el){el.style.display='block';el.textContent=fieldName+' must not contain digits';}return false;}
+    if(el)el.style.display='none';return true;
+}
+
+function validatePhone(phone,errorId){
+    let el=document.getElementById(errorId);
+    if(!isValidUgPhone(phone)){if(el){el.style.display='block';el.textContent='Phone must be exactly 10 digits starting with 07';}return false;}
+    if(el)el.style.display='none';return true;
+}
+
+function validatePassword(pw,errorId){
+    let el=document.getElementById(errorId);
+    if(String(pw).length<6){if(el){el.style.display='block';el.textContent='Password must be at least 6 characters';}return false;}
+    if(el)el.style.display='none';return true;
+}
+
+// ===== HELPERS =====
+function escapeHTML(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function safeClass(v){return String(v??'').replace(/[^a-z0-9_-]/gi,'-');}
+function isTempId(id){return String(id).startsWith('temp_');}
+function canAccessFacility(fid){return !currentUser||currentUser.role!=='User'||String(fid)===String(currentUser.facilityId);}
+function isSuperAdmin(){return currentUser&&currentUser.role==='Super Admin';}
+function isAdmin(){return currentUser&&currentUser.role==='Admin';}
+function isUser(){return currentUser&&currentUser.role==='User';}
+
+async function hashPassword(pw){
+    if(!window.crypto||!crypto.subtle)return 'plain-fallback-'+btoa(unescape(encodeURIComponent(PASSWORD_SALT+':'+pw)));
+    let d=new TextEncoder().encode(PASSWORD_SALT+':'+pw);
+    let h=await crypto.subtle.digest('SHA-256',d);
+    return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function maskPhone(phone){let p=String(phone);if(p.length>=10)return p.substring(0,4)+'***'+p.substring(7);return '***';}
+
+function visibleAssets(){let a=DB.get('assets');return currentUser&&currentUser.role==='User'?a.filter(x=>String(x.facilityId)===String(currentUser.facilityId)):a;}
+function visibleWorkers(){let w=DB.get('workers');return currentUser&&currentUser.role==='User'?w.filter(x=>String(x.facilityId)===String(currentUser.facilityId)):w;}
+
+function logAudit(action,record,details){
+    if(!currentUser)return;
+    let a=DB.get('audit');
+    a.unshift({id:'temp_'+Date.now()+'_'+Math.random().toString(36).substr(2,5),at:new Date().toISOString(),user:currentUser.username,role:currentUser.role,action,record,details,_sync:false});
+    DB.set('audit',a.slice(0,1000));
+}
+
+function downloadText(fn,content,type='text/plain'){let b=new Blob([content],{type}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);}
+function csvEscape(v){return`"${String(v??'').replace(/"/g,'""')}"`;}
+function downloadExcel(fn,sheet,headers,rows){let h=`<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body><table><caption>${escapeHTML(sheet)}</caption><thead><tr>${headers.map(x=>`<th>${escapeHTML(x)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${escapeHTML(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`;downloadText(fn,h,'application/vnd.ms-excel;charset=utf-8');}
+
+// ===== FORGOT PASSWORD =====
+let resetPinData={username:'',pin:'',expires:0};
+
+function showForgotPassword(){
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('forgotPasswordPage').classList.remove('hidden');
+    document.getElementById('forgotStep1').classList.remove('hidden');
+    document.getElementById('forgotStep2').classList.add('hidden');
+    document.getElementById('forgotStep3').classList.add('hidden');
+    document.getElementById('forgotMsg').innerText='';
+    document.getElementById('forgotUsername').value='';
+    clearPinBoxes();
+}
+
+function clearPinBoxes(){for(let i=1;i<=6;i++){let el=document.getElementById('pin'+i);if(el)el.value='';}}
+
+function pinNext(current,nextId){
+    if(current.value.length===1&&nextId){let next=document.getElementById(nextId);if(next)next.focus();}
+    if(nextId===''){let pin=getEnteredPin();if(pin.length===6)verifyPin();}
+}
+
+function pinBack(event,current,prevId){
+    if(event.key==='Backspace'&&current.value===''&&prevId){let prev=document.getElementById(prevId);if(prev){prev.value='';prev.focus();}}
+}
+
+function getEnteredPin(){let pin='';for(let i=1;i<=6;i++){let el=document.getElementById('pin'+i);if(el)pin+=el.value;}return pin;}
+
+function generatePin(){return String(Math.floor(100000+Math.random()*900000));}
+
+function sendResetPin(){
+    let username=document.getElementById('forgotUsername').value.trim();
+    if(!username){document.getElementById('forgotMsg').innerText='Enter your username';return;}
+    let users=DB.get('users');
+    let user=users.find(u=>u.username===username);
+    if(!user){document.getElementById('forgotMsg').innerText='Username not found';return;}
+    if(!user.telephone||!isValidUgPhone(user.telephone)){document.getElementById('forgotMsg').innerText='No valid phone number registered for this account. Contact admin.';return;}
+
+    let pin=generatePin();
+    resetPinData={username:username,pin:pin,expires:Date.now()+300000};
+
+    let pins=DB.get('resetPins');
+    pins=pins.filter(p=>p.username!==username);
+    pins.push({username,pin,expires:resetPinData.expires,used:false});
+    DB.set('resetPins',pins);
+
+    document.getElementById('forgotPhoneDisplay').innerText=maskPhone(user.telephone);
+    document.getElementById('forgotStep1').classList.add('hidden');
+    document.getElementById('forgotStep2').classList.remove('hidden');
+    document.getElementById('pinMsg').innerText='';
+    clearPinBoxes();
+    document.getElementById('pin1').focus();
+
+    showSyncStatus('📱 A reset PIN has been sent to your registered phone number.','#27ae60');
+    setTimeout(()=>showSyncStatus('',''),8000);
+    console.log('[SMS Simulation] PIN for '+username+': '+pin);
+}
+
+function resendPin(){
+    resetPinData.pin=generatePin();
+    resetPinData.expires=Date.now()+300000;
+    let pins=DB.get('resetPins');
+    pins=pins.filter(p=>p.username!==resetPinData.username);
+    pins.push({username:resetPinData.username,pin:resetPinData.pin,expires:resetPinData.expires,used:false});
+    DB.set('resetPins',pins);
+    clearPinBoxes();
+    document.getElementById('pin1').focus();
+    document.getElementById('pinMsg').innerText='';
+    showSyncStatus('📱 A new reset PIN has been sent to your registered phone number.','#27ae60');
+    setTimeout(()=>showSyncStatus('',''),8000);
+}
+
+function verifyPin(){
+    let enteredPin=getEnteredPin();
+    if(enteredPin.length!==6){document.getElementById('pinMsg').innerText='Enter all 6 digits';return;}
+    if(Date.now()>resetPinData.expires){document.getElementById('pinMsg').innerText='PIN expired. Click Resend PIN.';return;}
+    if(enteredPin!==resetPinData.pin){document.getElementById('pinMsg').innerText='Wrong PIN. Try again.';clearPinBoxes();document.getElementById('pin1').focus();return;}
+    document.getElementById('forgotStep2').classList.add('hidden');
+    document.getElementById('forgotStep3').classList.remove('hidden');
+    document.getElementById('resetMsg').innerText='';
+    document.getElementById('newPassword').value='';
+    document.getElementById('confirmPassword').value='';
+    document.getElementById('newPassword').focus();
+}
+
+async function resetPassword(){
+    let newPw=document.getElementById('newPassword').value;
+    let confirmPw=document.getElementById('confirmPassword').value;
+    if(newPw.length<6){document.getElementById('resetMsg').innerText='Password must be at least 6 characters';return;}
+    if(newPw!==confirmPw){document.getElementById('resetMsg').innerText='Passwords do not match';return;}
+    let users=DB.get('users');
+    let user=users.find(u=>u.username===resetPinData.username);
+    if(!user){document.getElementById('resetMsg').innerText='User not found';return;}
+    user.passwordHash=await hashPassword(newPw);
+    delete user.password;
+    DB.set('users',users);
+    let pins=DB.get('resetPins');
+    pins.forEach(p=>{if(p.username===resetPinData.username)p.used=true;});
+    DB.set('resetPins',pins);
+    logAudit('Password Reset',resetPinData.username,'Password reset via phone PIN');
+    alert('Password reset successfully! Please login with your new password.');
+    resetPinData={username:'',pin:'',expires:0};
+    showLogin();
+}
+
+// ===== SYNC ENGINE =====
+const SYNC_ORDER=['facilities','departments','users','workers','assets','audit'];
+let isAutoSyncing=false;
+
+function showSyncStatus(msg,color){let el=document.getElementById('syncStatus');if(!el)return;if(msg){el.textContent=msg;el.style.background=color;el.style.display='block';}else{el.style.display='none';}}
+
+async function autoSyncAll(){
+    if(isAutoSyncing||!navigator.onLine)return;
+    const hasUnsynced=SYNC_ORDER.some(t=>DB.get(t).some(r=>r._sync===false));
+    if(!hasUnsynced)return;
+    isAutoSyncing=true;showSyncStatus('Syncing...','#ff9800');
+    try{for(const t of SYNC_ORDER)await syncTable(t);showSyncStatus('All synced ✓','#28a745');refreshAllViews();}
+    catch(e){showSyncStatus('Sync failed. Will retry','#dc3545');}
+    isAutoSyncing=false;setTimeout(()=>showSyncStatus('',''),3000);
+}
+
+async function syncTable(table){
+    const rows=DB.get(table).filter(r=>r._sync===false);
+    for(const row of rows){
+        if(row.facilityId&&isTempId(row.facilityId))continue;
+        if(row.deptId&&isTempId(row.deptId))continue;
+        try{
+            const payload=buildSyncPayload(table,row);
+            const endpoint=getSyncEndpoint(table);
+            const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+            if(!res.ok)throw new Error('HTTP '+res.status);
+            const result=await res.json();
+            if(!result.success)throw new Error(result.error);
+            let data=DB.get(table);
+            const idx=data.findIndex(r=>r.id===row.id);
+            if(idx!==-1){const oldId=data[idx].id;data[idx].id=result.id;data[idx]._sync=true;delete data[idx]._created_at;DB.set(table,data);updateAllForeignKeys(table,oldId,result.id);}
+        }catch(e){console.warn('[Sync]',table,row.id,e.message);}
+    }
+}
+
+function buildSyncPayload(table,row){
+    switch(table){
+        case 'facilities':return{name:row.name};
+        case 'departments':return{name:row.name,facilityId:row.facilityId};
+        case 'users':return{username:row.username,passwordHash:row.passwordHash,role:row.role,facilityId:row.facilityId,telephone:row.telephone||''};
+        case 'workers':return{name:row.name,title:row.title,responsibility:row.responsibility,telephone:row.telephone,facilityId:row.facilityId};
+        case 'assets':return{refNumber:row.refNumber,name:row.name,type:row.type,facilityId:row.facilityId,deptId:row.deptId,room:row.room,model:row.model,serial:row.serial,manufacturer:row.manufacturer,qty:row.qty,dateEntered:row.dateEntered,conditionVal:row.condition,status:row.status,enteredBy:row.enteredBy};
+        case 'audit':return{action:row.action,record:row.record,details:row.details,username:row.user,role:row.role};
+        default:return row;
+    }
+}
+
+function getSyncEndpoint(table){return{facilities:'API/facility_add.php',departments:'API/department_add.php',users:'API/user_add.php',workers:'API/worker_add.php',assets:'API/asset_add.php',audit:'API/audit_add.php'}[table]||'';}
+
+function updateAllForeignKeys(parentTable,oldId,newId){
+    const fkMap={facilities:'facilityId',departments:'deptId'};const fk=fkMap[parentTable];if(!fk)return;
+    ['departments','users','workers','assets'].forEach(t=>{let data=DB.get(t),changed=false;data.forEach(r=>{if(String(r[fk])===String(oldId)){r[fk]=newId;changed=true;}});if(changed)DB.set(t,data);});
+}
+
+window.addEventListener('online',autoSyncAll);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.onLine)autoSyncAll();});
+setInterval(()=>{if(navigator.onLine&&!isAutoSyncing)autoSyncAll();},20000);
+
+function refreshAllViews(){loadAssets();loadDepartments();loadFacilities();loadWorkers();loadUsers();loadAudit();loadStats();populateAllSelects();}
+
+// ===== PAGE CONTROL =====
+function showLogin(){document.body.classList.remove('dashboard-active');document.getElementById('loginPage').classList.remove('hidden');['userRegisterPage','adminRegisterPage','workerPage','dashboard','forgotPasswordPage'].forEach(id=>document.getElementById(id).classList.add('hidden'));}
+function showUserRegister(){document.getElementById('loginPage').classList.add('hidden');document.getElementById('userRegisterPage').classList.remove('hidden');loadFacilitiesToSelect('regUserFacility');}
+function showAdminRegister(){document.getElementById('adminRegisterPage').classList.remove('hidden');document.getElementById('dashboard').classList.add('hidden');loadFacilitiesToSelect('regAdminFacility');}
+function showWorkerPage(){
+    if(!currentUser.facilityId){showDashboard();let btn=Array.from(document.querySelectorAll('.tabBtn')).find(b=>b.textContent.includes('Health Workers'));if(btn)showTab('workers',btn);return;}
+    document.getElementById('workerPage').classList.remove('hidden');document.getElementById('dashboard').classList.add('hidden');document.body.classList.remove('dashboard-active');
+    let fac=DB.get('facilities').find(f=>f.id===currentUser.facilityId);document.getElementById('workerFacilityName').innerText=fac?fac.name:'Your Facility';loadWorkerPage();
+}
+function showDashboard(){document.body.classList.add('dashboard-active');['adminRegisterPage','userRegisterPage','workerPage'].forEach(id=>document.getElementById(id).classList.add('hidden'));document.getElementById('dashboard').classList.remove('hidden');}
+function showTab(tab,btn){
+    ['assets','users','facilities','departments','workers','audit'].forEach(t=>{let el=document.getElementById(t+'Tab');if(el)el.classList.add('hidden');});
+    document.getElementById(tab+'Tab').classList.remove('hidden');
+    document.querySelectorAll('.tabBtn').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');
+    if(tab==='assets')loadAssets();if(tab==='workers')loadWorkers();if(tab==='facilities')loadFacilities();if(tab==='departments')loadDepartments();if(tab==='users')loadUsers();if(tab==='audit')loadAudit();
+}
+
+// ===== LOGIN / REGISTER =====
+async function login(){
+    DB.init();let users=DB.get('users');
+    let u=document.getElementById('loginUser').value,p=document.getElementById('loginPass').value;
+    let ph=await hashPassword(p);
+    let user=users.find(x=>x.username===u&&(x.passwordHash===ph||x.password===p));
+    if(user){if(!user.passwordHash||user.password){user.passwordHash=ph;delete user.password;DB.set('users',users);}currentUser=user;localStorage.setItem('currentUser',JSON.stringify(user));document.getElementById('loginPage').classList.add('hidden');initDashboard();showDashboard();}
+    else{document.getElementById('loginMsg').innerText='Wrong username or password';}
+}
+
+async function registerUser(){
+    let name=document.getElementById('regUserName').value.trim(),username=document.getElementById('regUserUsername').value.trim(),password=document.getElementById('regUserPass').value,phone=document.getElementById('regUserPhone').value.trim(),facilityId=parseInt(document.getElementById('regUserFacility').value);
+    let valid=true;if(!validateNoDigits(name,'Name','regUserNameErr'))valid=false;if(!validatePassword(password,'regUserPassErr'))valid=false;if(!validatePhone(phone,'regUserPhoneErr'))valid=false;if(!valid)return;
+    if(!name||!username||!password||!phone||!facilityId){alert('Fill all fields');return;}
+    let users=DB.get('users');if(users.find(u=>u.username===username)){alert('Username already exists');return;}
+    let passwordHash=await hashPassword(password);
+    users.push({id:'temp_'+Date.now()+'_'+Math.random().toString(36).substr(2,5),username,passwordHash,role:'User',facilityId,telephone:phone,_sync:false,_created_at:new Date().toISOString()});
+    DB.set('users',users);alert('User account created! Now login');showLogin();if(navigator.onLine)autoSyncAll();
+}
+
+async function registerAdmin(){
+    let name=document.getElementById('regAdminName').value.trim(),username=document.getElementById('regAdminUsername').value.trim(),password=document.getElementById('regAdminPass').value,phone=document.getElementById('regAdminPhone').value.trim(),facilityId=parseInt(document.getElementById('regAdminFacility').value);
+    let valid=true;if(!validateNoDigits(name,'Name','regAdminNameErr'))valid=false;if(!validatePassword(password,'regAdminPassErr'))valid=false;if(!validatePhone(phone,'regAdminPhoneErr'))valid=false;if(!valid)return;
+    if(!name||!username||!password||!phone||!facilityId){alert('Fill all fields');return;}
+    let users=DB.get('users');if(users.find(u=>u.username===username)){alert('Username already exists');return;}
+    let passwordHash=await hashPassword(password);
+    users.push({id:'temp_'+Date.now()+'_'+Math.random().toString(36).substr(2,5),username,passwordHash,role:'Admin',facilityId,telephone:phone,_sync:false,_created_at:new Date().toISOString()});
+    DB.set('users',users);logAudit('Create Admin',username,'Facility '+facilityId);alert('Admin account created!');showDashboard();loadUsers();if(navigator.onLine)autoSyncAll();
+}
+
+function logout(){document.body.classList.remove('dashboard-active');localStorage.removeItem('currentUser');location.reload();}
+
+// ===== DASHBOARD INIT =====
+function initDashboard(){
+    currentUser=JSON.parse(localStorage.getItem('currentUser'));
+    if(!currentUser||!currentUser.username||!currentUser.role)throw new Error('Bad session');
+    let stored=DB.get('users').find(u=>u.id===currentUser.id||u.username===currentUser.username);
+    if(stored){currentUser=stored;localStorage.setItem('currentUser',JSON.stringify(currentUser));}
+    if(currentUser.password){delete currentUser.password;localStorage.setItem('currentUser',JSON.stringify(currentUser));}
+    let fac=DB.get('facilities').find(f=>f.id===currentUser.facilityId);
+    document.getElementById('currentUser').innerText=currentUser.username;
+    document.getElementById('currentRole').innerText=currentUser.role;
+    document.getElementById('dashFacilityName').innerText=fac?fac.name+' – AMS':'System – AMS';
+
+    // === ROLE-BASED UI ===
+    // User: hide Users tab, Audit tab, Backup, Restore
+    if(isUser()){
+        document.getElementById('tabUsers').style.display='none';
+        document.getElementById('tabAudit').style.display='none';
+        document.getElementById('btnBackup').style.display='none';
+        document.getElementById('btnRestore').style.display='none';
+    } else {
+        document.getElementById('tabUsers').style.display='';
+        document.getElementById('tabAudit').style.display='';
+        document.getElementById('btnBackup').style.display='';
+        document.getElementById('btnRestore').style.display='';
+    }
+
+    // + Add Admin: only Super Admin
+    document.getElementById('addAdminBtn').style.display=isSuperAdmin()?'inline-block':'none';
+
+    // + Add Facility: Admin and Super Admin only (User cannot add)
+    document.getElementById('addFacilityBtn').style.display=isUser()?'none':'inline-block';
+
+    populateAllSelects();loadAssets();loadDepartments();loadFacilities();loadWorkers();loadUsers();loadAudit();loadStats();
+}
+
+function populateAllSelects(){
+    let facs=DB.get('facilities'),depts=DB.get('departments');
+    let visibleFacs=currentUser.role==='User'?facs.filter(f=>String(f.id)===String(currentUser.facilityId)):facs;
+    let visibleDepts=currentUser.role==='User'?depts.filter(d=>String(d.facilityId)===String(currentUser.facilityId)):depts;
+    let ff=document.getElementById('filterFacility');if(ff){if(currentUser.role==='User'){ff.innerHTML='';visibleFacs.forEach(f=>ff.innerHTML+=`<option value="${f.id}">${escapeHTML(f.name)}</option>`);ff.style.display='none';}else{ff.innerHTML='<option value="">All Facilities</option>';visibleFacs.forEach(f=>ff.innerHTML+=`<option value="${f.id}">${escapeHTML(f.name)}</option>`);ff.style.display='';}}
+    let fd=document.getElementById('filterDept');if(fd){fd.innerHTML='<option value="">All Departments</option>';visibleDepts.forEach(d=>fd.innerHTML+=`<option value="${d.id}">${escapeHTML(d.name)}</option>`);}
+    let fw=document.getElementById('filterWorkerFacility');if(fw){if(currentUser.role==='User'){fw.innerHTML='';visibleFacs.forEach(f=>fw.innerHTML+=`<option value="${f.id}">${escapeHTML(f.name)}</option>`);fw.style.display='none';}else{fw.innerHTML='<option value="">All Facilities</option>';visibleFacs.forEach(f=>fw.innerHTML+=`<option value="${f.id}">${escapeHTML(f.name)}</option>`);fw.style.display='';}}
+    let af=document.getElementById('aFacility');if(af){af.innerHTML='<option value="">Select Facility *</option>';visibleFacs.forEach(f=>af.innerHTML+=`<option value="${f.id}">${escapeHTML(f.name)}</option>`);if(currentUser.role==='User'&&visibleFacs.length===1){af.value=visibleFacs[0].id;filterDeptsByFacility();}}
+    let df=document.getElementById('deptFacility');if(df){df.innerHTML='<option value="">Select Facility *</option>';visibleFacs.forEach(f=>df.innerHTML+=`<option value="${f.id}">${escapeHTML(f.name)}</option>`);if(currentUser.role==='User'&&visibleFacs.length===1){df.value=visibleFacs[0].id;}}
+}
+
+// ===== ASSET REFERENCE =====
+function parseUphRef(ref){let m=String(ref||'').trim().match(/^UPH-(\d+)$/i);return m?parseInt(m[1],10):null;}
+function formatUphRef(n){return`UPH-${String(n).padStart(3,'0')}`;}
+function getNextUphNumber(){let a=DB.get('assets'),m=0;for(let x of a){let n=parseUphRef(x.refNumber);if(n&&n>m)m=n;}return m+1;}
+function suggestNextRef(){let el=document.getElementById('aRef');if(!el)return;let n=formatUphRef(getNextUphNumber());el.placeholder=`Ref e.g. ${n} (must be unique)`;if(!el.value.trim())el.value=n;}
+function checkRefNumber(){let el=document.getElementById('aRef');if(!el)return;let ref=el.value.trim();if(!ref)return;if(parseUphRef(ref)===null){alert('Reference must be UPH-XXX format (e.g. UPH-001).');el.value='';el.focus();return;}if(DB.get('assets').some(a=>String(a.refNumber).toUpperCase()===ref.toUpperCase())){alert('Reference Number already exists!');el.value='';el.focus();}}
+
+function toggleAddAsset(){let f=document.getElementById('addAssetForm');f.classList.toggle('hidden');if(!f.classList.contains('hidden'))suggestNextRef();}
+function filterDeptsByFacility(){let fid=document.getElementById('aFacility').value;let ds=DB.get('departments').filter(d=>String(d.facilityId)===String(fid));let s=document.getElementById('aDept');s.innerHTML='<option value="">Select Department *</option>';ds.forEach(d=>s.innerHTML+=`<option value="${d.id}">${escapeHTML(d.name)}</option>`);}
+
+function addAsset(){
+    let ref=document.getElementById('aRef').value.trim(),name=document.getElementById('aName').value.trim(),facilityId=parseInt(document.getElementById('aFacility').value),deptId=parseInt(document.getElementById('aDept').value),condition=document.getElementById('aCondition').value,status=document.getElementById('aStatus').value;
+    let type=document.getElementById('aType').value.trim(),room=document.getElementById('aRoom').value.trim(),model=document.getElementById('aModel').value.trim(),serial=document.getElementById('aSerial').value.trim(),manufacturer=document.getElementById('aMfr').value.trim();
+    let qty=parseInt(document.getElementById('aQty').value)||1;let dateEntered=new Date().toISOString().split('T')[0];
+    if(!ref)ref=formatUphRef(getNextUphNumber());
+    if(parseUphRef(ref)===null){alert('Reference must be UPH-XXX format.');return;}
+    if(!name||isNaN(facilityId)||isNaN(deptId)||!condition||!status){alert('Fill all required fields marked with *');return;}
+    if(qty<1){alert('Quantity must be at least 1');return;}
+    if(!canAccessFacility(facilityId)){alert('You can only add assets for your own facility.');return;}
+    let assets=DB.get('assets');if(assets.some(a=>String(a.refNumber).toUpperCase()===ref.toUpperCase())){alert('Reference Number already exists!');return;}
+    assets.push({id:'temp_'+Date.now()+'_'+Math.random().toString(36).substr(2,5),refNumber:ref,name,type,facilityId,deptId,room,model,serial,manufacturer,qty,dateEntered,condition,status,enteredBy:currentUser.username,_sync:false,_created_at:new Date().toISOString()});
+    DB.set('assets',assets);logAudit('Add Asset',ref,`${name} added with status ${status}`);currentPage=1;loadAssets();toggleAddAsset();
+    ['aRef','aName','aType','aRoom','aModel','aSerial','aMfr'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('aQty').value=1;document.getElementById('aCondition').value='';document.getElementById('aStatus').value='';document.getElementById('aFacility').value='';document.getElementById('aDept').innerHTML='<option value="">Select Department *</option>';
+    if(navigator.onLine)autoSyncAll();
+}
+
+function updateStatus(id,status){if(status==='Change')return;let assets=DB.get('assets');let a=assets.find(x=>x.id===id);if(!a)return;if(!canAccessFacility(a.facilityId)){alert('No permission for this facility');return;}let old=a.status;a.status=status;a.dateEntered=new Date().toISOString().split('T')[0];DB.set('assets',assets);logAudit('Update Status',a.refNumber,`${old} -> ${status}`);loadAssets();}
+
+function deleteAsset(id){if(!isSuperAdmin()){alert('Only Super Admin can delete assets');return;}if(!confirm('Delete this asset?'))return;let asset=DB.get('assets').find(a=>a.id===id);DB.set('assets',DB.get('assets').filter(a=>a.id!==id));if(asset)logAudit('Delete Asset',asset.refNumber,asset.name);loadAssets();}
+
+function loadAssets(){
+    let assets=DB.get('assets'),depts=DB.get('departments'),facs=DB.get('facilities');
+    let tbody=document.querySelector('#assetTable tbody');if(!tbody)return;tbody.innerHTML='';
+    if(isUser())assets=assets.filter(a=>String(a.facilityId)===String(currentUser.facilityId));
+    let fF=document.getElementById('filterFacility').value,fD=document.getElementById('filterDept').value,fS=document.getElementById('filterStatus').value,fC=document.getElementById('filterCondition').value,fQ=document.getElementById('filterSearch').value.toLowerCase();
+    if(fF)assets=assets.filter(a=>String(a.facilityId)===String(fF));if(fD)assets=assets.filter(a=>String(a.deptId)===String(fD));if(fS)assets=assets.filter(a=>a.status===fS);if(fC)assets=assets.filter(a=>a.condition===fC);if(fQ)assets=assets.filter(a=>a.name.toLowerCase().includes(fQ)||String(a.refNumber||'').toLowerCase().includes(fQ));
+    let tp=Math.max(1,Math.ceil(assets.length/itemsPerPage));if(currentPage>tp)currentPage=1;
+    let s=(currentPage-1)*itemsPerPage,pg=assets.slice(s,s+itemsPerPage);
+    if(pg.length===0)tbody.innerHTML='<tr><td colspan="15" style="text-align:center;color:#888;padding:20px">No assets found.</td></tr>';
+    pg.forEach(a=>{
+        let d=depts.find(x=>String(x.id)===String(a.deptId))||{name:'N/A'};let f=facs.find(x=>String(x.id)===String(a.facilityId))||{name:'N/A'};let sync=a._sync!==false?'':' ⏳';
+        let delBtn=isSuperAdmin()?` <button class="btn-sm btn-danger" onclick="deleteAsset('${a.id}')">Del</button>`:'';
+        tbody.innerHTML+=`<tr class="status-${safeClass(a.status)}"><td>${escapeHTML(a.refNumber)}${sync}</td><td>${escapeHTML(a.name)}</td><td>${escapeHTML(a.type)||'—'}</td><td>${escapeHTML(f.name)}</td><td>${escapeHTML(d.name)}</td><td>${escapeHTML(a.room)||'—'}</td><td>${escapeHTML(a.model)||'—'}</td><td>${escapeHTML(a.serial)||'—'}</td><td>${escapeHTML(a.manufacturer)||'—'}</td><td>${escapeHTML(a.qty)}</td><td>${escapeHTML(a.dateEntered)}</td><td>${escapeHTML(a.condition)}</td><td>${escapeHTML(a.status)}</td><td>${escapeHTML(a.enteredBy)||'N/A'}</td><td><select class="btn-sm" onchange="updateStatus('${a.id}',this.value)"><option value="Change">— Change —</option><option>Working</option><option>Not Working</option><option>Needs Repair</option><option>Under Repair</option><option>Repaired-Wait</option><option>Broken Down</option><option>Decommissioned</option><option>Soon to Decom</option><option>Out of Order and Should be Replaced</option><option>In Use but Need Repair</option><option>Good but Not in Use</option><option>In Use but Need Calibration</option></select>${delBtn}</td></tr>`;
+    });
+    let pag=document.getElementById('assetPagination');pag.innerHTML='';
+    if(tp>1){if(currentPage>1)pag.innerHTML+=`<button class="btn-sm" onclick="changePage(${currentPage-1})">◀ Prev</button>`;pag.innerHTML+=`<span style="padding:5px 10px;font-weight:bold">Page ${currentPage} of ${tp} (${assets.length} records)</span>`;if(currentPage<tp)pag.innerHTML+=`<button class="btn-sm" onclick="changePage(${currentPage+1})">Next ▶</button>`;}
+    else{pag.innerHTML=`<span style="color:#888;font-size:13px">${assets.length} record(s)</span>`;}
+    loadStats();
+}
+
+function changePage(p){currentPage=p;loadAssets();}
+function resetFilters(){['filterFacility','filterDept','filterStatus','filterCondition','filterSearch'].forEach(id=>{let e=document.getElementById(id);if(e)e.value='';});currentPage=1;loadAssets();}
+function loadStats(){if(!document.getElementById('statAssets'))return;let a=visibleAssets(),w=visibleWorkers();let att=['Not Working','Needs Repair','Under Repair','Broken Down','Out of Order and Should be Replaced','In Use but Need Repair','In Use but Need Calibration'];document.getElementById('statAssets').innerText=a.length;document.getElementById('statWorking').innerText=a.filter(x=>x.status==='Working'||x.status==='New').length;document.getElementById('statAttention').innerText=a.filter(x=>att.includes(x.status)).length;document.getElementById('statWorkers').innerText=w.length;}
+
+// ===== FACILITIES =====
+function addFacility(){if(isUser()){alert('Users cannot add facilities');return;}let name=document.getElementById('newFacility').value.trim();if(!name){alert('Enter a facility name');return;}let facs=DB.get('facilities');if(facs.find(f=>f.name.toLowerCase()===name.toLowerCase())){alert('Facility already exists');return;}facs.push({id:'temp_'+Date.now()+'_'+Math.random().toString(36).substr(2,5),name,_sync:false,_created_at:new Date().toISOString()});DB.set('facilities',facs);logAudit('Add Facility',name,'Facility created');document.getElementById('newFacility').value='';loadFacilities();populateAllSelects();if(navigator.onLine)autoSyncAll();}
+
+function deleteFacility(id){if(!isSuperAdmin()){alert('Only Super Admin can delete facilities');return;}let has=DB.get('assets').some(a=>String(a.facilityId)===String(id))||DB.get('departments').some(d=>String(d.facilityId)===String(id))||DB.get('users').some(u=>String(u.facilityId)===String(id))||DB.get('workers').some(w=>String(w.facilityId)===String(id));if(has){alert('This facility has assets, departments, users, or workers. Move or delete those records first.');return;}if(!confirm('Delete this facility?'))return;let fac=DB.get('facilities').find(f=>f.id===id);DB.set('facilities',DB.get('facilities').filter(f=>f.id!==id));if(fac)logAudit('Delete Facility',fac.name,'Facility deleted');loadFacilities();populateAllSelects();}
+
+function loadFacilities(){let facs=DB.get('facilities');let search=(document.getElementById('filterFacilityName')?.value||'').toLowerCase();if(search)facs=facs.filter(f=>f.name.toLowerCase().includes(search));let tbody=document.querySelector('#facilityTable tbody');if(!tbody)return;tbody.innerHTML='';if(isUser())facs=facs.filter(f=>String(f.id)===String(currentUser.facilityId));facs.forEach((f,i)=>{let sync=f._sync!==false?'✓ Synced':'⏳ Not synced';let delBtn=isSuperAdmin()?`<button class="btn-sm btn-danger" onclick="deleteFacility('${f.id}')">Del</button>`:'<span style="color:#999;font-size:12px">—</span>';tbody.innerHTML+=`<tr><td>${i+1}</td><td>${escapeHTML(f.name)}</td><td>${sync}</td><td>${delBtn}</td></tr>`;});}
+
+function loadFacilitiesToSelect(sid){let facs=DB.get('facilities'),sel=document.getElementById(sid);if(!sel)return;sel.innerHTML='<option value="">Select Facility *</option>';facs.forEach(f=>sel.innerHTML+=`<option value="${f.id}">${escapeHTML(f.name)}</option>`);}
+
+// ===== DEPARTMENTS =====
+function addDepartment(){let name=document.getElementById('newDept').value.trim(),facilityId=document.getElementById('deptFacility').value;if(!name){alert('Enter a department name');return;}if(!facilityId){alert('Select a facility');return;}if(isUser())facilityId=currentUser.facilityId;let depts=DB.get('departments');depts.push({id:'temp_'+Date.now()+'_'+Math.random().toString(36).substr(2,5),name,facilityId:parseInt(facilityId),_sync:false,_created_at:new Date().toISOString()});DB.set('departments',depts);logAudit('Add Department',name,'Department created');document.getElementById('newDept').value='';loadDepartments();populateAllSelects();if(navigator.onLine)autoSyncAll();}
+
+function loadDepartments(){let depts=DB.get('departments'),facs=DB.get('facilities');let tbody=document.querySelector('#deptTable tbody');if(!tbody)return;tbody.innerHTML='';if(isUser())depts=depts.filter(d=>String(d.facilityId)===String(currentUser.facilityId));depts.forEach(d=>{let f=facs.find(x=>String(x.id)===String(d.facilityId))||{name:'N/A'};let sync=d._sync!==false?'✓ Synced':'⏳ Not synced';tbody.innerHTML+=`<tr><td>${escapeHTML(d.name)}</td><td>${escapeHTML(f.name)}</td><td>${sync}</td></tr>`;});}
+
+// ===== USERS =====
+function loadUsers(){let users=DB.get('users'),facs=DB.get('facilities');let tbody=document.querySelector('#userTable tbody');if(!tbody)return;tbody.innerHTML='';users.forEach(u=>{let f=facs.find(x=>String(x.id)===String(u.facilityId));let fn=f?f.name:(u.role==='Super Admin'?'All Facilities':'N/A');let sync=u._sync!==false?'':' ⏳';let canDel=false;if(isSuperAdmin()&&u.role!=='Super Admin')canDel=true;if(isAdmin()&&u.role==='User'&&String(u.facilityId)===String(currentUser.facilityId))canDel=true;let delBtn=canDel?`<button class="btn-sm btn-danger" onclick="deleteUser('${u.id}')">Del</button>`:'<span style="color:#999;font-size:12px">—</span>';tbody.innerHTML+=`<tr><td>${escapeHTML(u.username)}${sync}</td><td>${escapeHTML(u.role)}</td><td>${escapeHTML(fn)}</td><td>${escapeHTML(u.telephone||'N/A')}</td><td>${delBtn}</td></tr>`;});}
+
+function deleteUser(id){let user=DB.get('users').find(u=>u.id===id);if(!user){alert('User not found');return;}if(user.role==='Super Admin'){alert('Cannot delete Super Admin');return;}if(!confirm('Delete user '+user.username+'?'))return;DB.set('users',DB.get('users').filter(u=>u.id!==id));logAudit('Delete User',user.username,user.role);loadUsers();}
+
+// ===== HEALTH WORKERS =====
+function addWorker(){
+    let name=document.getElementById('workerName').value.trim(),title=document.getElementById('workerTitle').value.trim(),resp=document.getElementById('workerResp').value.trim(),tel=document.getElementById('workerTel').value.trim(),facilityId=currentUser.facilityId;
+    let valid=true;if(!validateNoDigits(name,'Name','workerNameErr'))valid=false;if(!validateNoDigits(title,'Title','workerTitleErr'))valid=false;if(!validateNoDigits(resp,'Responsibility','workerRespErr'))valid=false;if(!validatePhone(tel,'workerTelErr'))valid=false;if(!valid)return;
+    if(!name||!title||!resp||!tel){alert('Fill all fields');return;}
+    let workers=DB.get('workers');if(workers.find(w=>w.name.toLowerCase()===name.toLowerCase()&&w.telephone===tel)){alert('A worker with this name and telephone already exists.');return;}
+    workers.push({id:'temp_'+Date.now()+'_'+Math.random().toString(36).substr(2,5),name,title,responsibility:resp,telephone:tel,facilityId,_sync:false,_created_at:new Date().toISOString()});
+    DB.set('workers',workers);logAudit('Add Worker',name,title);document.getElementById('workerName').value='';document.getElementById('workerTitle').value='';document.getElementById('workerResp').value='';document.getElementById('workerTel').value='';
+    ['workerNameErr','workerTitleErr','workerRespErr','workerTelErr'].forEach(id=>{let e=document.getElementById(id);if(e)e.style.display='none';});
+    loadWorkerPage();loadStats();if(navigator.onLine)autoSyncAll();
+}
+
+function loadWorkerPage(){
+    let workers=DB.get('workers').filter(w=>String(w.facilityId)===String(currentUser.facilityId));let search=(document.getElementById('workerPageSearch')?.value||'').toLowerCase();
+    if(search)workers=workers.filter(w=>w.name.toLowerCase().includes(search)||w.title.toLowerCase().includes(search)||w.telephone.includes(search));
+    let tbody=document.getElementById('workerPageTableBody');tbody.innerHTML='';
+    if(workers.length===0){tbody.innerHTML='<tr><td colspan="5" style="text-align:center">No workers found</td></tr>';return;}
+    workers.forEach(w=>{
+        // User cannot delete workers; Admin can delete in own facility; Super Admin can delete any
+        let canDel=isAdmin()||isSuperAdmin();
+        let delBtn=canDel?`<button class="btn-sm btn-danger" onclick="deleteWorker('${w.id}','page')">Del</button>`:'<span style="color:#999;font-size:12px">View Only</span>';
+        tbody.innerHTML+=`<tr><td>${escapeHTML(w.name)}</td><td>${escapeHTML(w.title)}</td><td>${escapeHTML(w.responsibility)}</td><td>${escapeHTML(w.telephone)}</td><td>${delBtn}</td></tr>`;
+    });
+}
+
+function loadWorkers(){
+    let workers=DB.get('workers'),facs=DB.get('facilities');let tbody=document.querySelector('#workerTable tbody');if(!tbody)return;tbody.innerHTML='';
+    if(isUser())workers=workers.filter(w=>String(w.facilityId)===String(currentUser.facilityId));
+    let fF=document.getElementById('filterWorkerFacility')?.value,fN=(document.getElementById('filterWorkerName')?.value||'').toLowerCase(),fT=(document.getElementById('filterWorkerTitle')?.value||'').toLowerCase(),fR=(document.getElementById('filterWorkerResp')?.value||'').toLowerCase();
+    if(fF)workers=workers.filter(w=>String(w.facilityId)===String(fF));if(fN)workers=workers.filter(w=>w.name.toLowerCase().includes(fN));if(fT)workers=workers.filter(w=>w.title.toLowerCase().includes(fT));if(fR)workers=workers.filter(w=>w.responsibility.toLowerCase().includes(fR));
+    if(workers.length===0){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#888;padding:20px">No workers found.</td></tr>';return;}
+    workers.forEach(w=>{let f=facs.find(x=>String(x.id)===String(w.facilityId))||{name:'N/A'};let sync=w._sync!==false?'':' ⏳';
+        // User cannot delete; Admin can delete in own facility; Super Admin can delete any
+        let canDel=false;if(isSuperAdmin())canDel=true;if(isAdmin()&&String(w.facilityId)===String(currentUser.facilityId))canDel=true;
+        let delBtn=canDel?`<button class="btn-sm btn-danger" onclick="deleteWorker('${w.id}','tab')">Del</button>`:'<span style="color:#999;font-size:12px">—</span>';
+        tbody.innerHTML+=`<tr><td>${escapeHTML(w.name)}${sync}</td><td>${escapeHTML(w.title)}</td><td>${escapeHTML(w.responsibility)}</td><td>${escapeHTML(w.telephone)}</td><td>${escapeHTML(f.name)}</td><td>${delBtn}</td></tr>`;
+    });
+}
+
+function deleteWorker(id,src){let worker=DB.get('workers').find(w=>w.id===id);if(!worker){alert('Worker not found');return;}if(!confirm('Delete this worker?'))return;DB.set('workers',DB.get('workers').filter(w=>w.id!==id));logAudit('Delete Worker',worker.name,worker.title);if(src==='tab')loadWorkers();else loadWorkerPage();loadStats();}
+function resetWorkerPageFilters(){document.getElementById('workerPageSearch').value='';loadWorkerPage();}
+function resetWorkerFilters(){['filterWorkerName','filterWorkerTitle','filterWorkerResp'].forEach(id=>{let e=document.getElementById(id);if(e)e.value='';});document.getElementById('filterWorkerFacility').value='';loadWorkers();}
+
+// ===== AUDIT =====
+function loadAudit(){let tbody=document.querySelector('#auditTable tbody');if(!tbody)return;if(isUser()){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#888;padding:20px">No permission to view audit log.</td></tr>';return;}let audit=DB.get('audit');let search=(document.getElementById('filterAuditSearch')?.value||'').toLowerCase();if(search)audit=audit.filter(a=>[a.user,a.role,a.action,a.record,a.details,a.at].join(' ').toLowerCase().includes(search));tbody.innerHTML='';if(audit.length===0){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#888;padding:20px">No audit entries found.</td></tr>';return;}audit.slice(0,200).forEach(a=>{let when=a.at?new Date(a.at).toLocaleString('en-GB'):'';tbody.innerHTML+=`<tr><td>${escapeHTML(when)}</td><td>${escapeHTML(a.user)} <span class="audit-pill">${escapeHTML(a.role||'')}</span></td><td>${escapeHTML(a.action)}</td><td>${escapeHTML(a.record)}</td><td>${escapeHTML(a.details)}</td></tr>`;});}
+function resetAuditFilters(){document.getElementById('filterAuditSearch').value='';loadAudit();}
+
+// ===== EXPORT =====
+function getFilteredAssetsForExport(){let assets=visibleAssets();let fF=document.getElementById('filterFacility')?.value||'',fD=document.getElementById('filterDept')?.value||'',fS=document.getElementById('filterStatus')?.value||'',fC=document.getElementById('filterCondition')?.value||'',fQ=(document.getElementById('filterSearch')?.value||'').toLowerCase();if(fF)assets=assets.filter(a=>String(a.facilityId)===String(fF));if(fD)assets=assets.filter(a=>String(a.deptId)===String(fD));if(fS)assets=assets.filter(a=>a.status===fS);if(fC)assets=assets.filter(a=>a.condition===fC);if(fQ)assets=assets.filter(a=>[a.name,a.refNumber,a.type,a.serial,a.model,a.manufacturer].join(' ').toLowerCase().includes(fQ));return assets;}
+function getAssetExportRows(){let facs=DB.get('facilities'),depts=DB.get('departments');return getFilteredAssetsForExport().map(a=>{let f=facs.find(x=>String(x.id)===String(a.facilityId))||{name:'N/A'};let d=depts.find(x=>String(x.id)===String(a.deptId))||{name:'N/A'};return[a.refNumber,a.name,a.type,f.name,d.name,a.room,a.model,a.serial,a.manufacturer,a.qty,a.dateEntered,a.condition,a.status,a.enteredBy];});}
+function exportAssetsCsv(){let rows=[['Ref#','Equipment','Type','Facility','Department','Room','Model','Serial#','Manufacturer','Qty','Date Entered','Condition','Status','Entered By']];rows.push(...getAssetExportRows());downloadText(`uphs-assets-${new Date().toISOString().slice(0,10)}.csv`,rows.map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv');logAudit('Export Assets','CSV',`${rows.length-1} assets exported`);}
+function exportAssetsExcel(){let h=['Ref#','Equipment','Type','Facility','Department','Room','Model','Serial#','Manufacturer','Qty','Date Entered','Condition','Status','Entered By'];let rows=getAssetExportRows();if(rows.length===0){alert('No assets to export.');return;}downloadExcel(`uphs-assets-${new Date().toISOString().slice(0,10)}.xls`,'Assets',h,rows);logAudit('Export Assets','Excel',`${rows.length} assets exported`);}
+function getFilteredAuditForExport(){let a=DB.get('audit'),s=(document.getElementById('filterAuditSearch')?.value||'').toLowerCase();if(s)a=a.filter(x=>[x.user,x.role,x.action,x.record,x.details,x.at].join(' ').toLowerCase().includes(s));return a;}
+function exportAuditCsv(){if(isUser()){alert('No permission.');return;}let rows=[['Date/Time','User','Role','Action','Record','Details']];getFilteredAuditForExport().forEach(a=>rows.push([a.at,a.user,a.role,a.action,a.record,a.details]));downloadText(`uphs-audit-${new Date().toISOString().slice(0,10)}.csv`,rows.map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv');logAudit('Export Audit','CSV',`${rows.length-1} entries exported`);}
+function exportAuditExcel(){if(isUser()){alert('No permission.');return;}let h=['Date/Time','User','Role','Action','Record','Details'];let rows=getFilteredAuditForExport().map(a=>[a.at,a.user,a.role,a.action,a.record,a.details]);if(rows.length===0){alert('No audit entries.');return;}downloadExcel(`uphs-audit-${new Date().toISOString().slice(0,10)}.xls`,'Audit Log',h,rows);logAudit('Export Audit','Excel',`${rows.length} entries exported`);}
+
+// ===== BACKUP / RESTORE =====
+function backupData(){if(isUser()){alert('No permission.');return;}let payload={app:'Uganda Police Health Service Inventory System',version:6,exportedAt:new Date().toISOString(),data:{facilities:DB.get('facilities'),departments:DB.get('departments'),users:DB.get('users'),assets:DB.get('assets'),workers:DB.get('workers'),audit:DB.get('audit')}};downloadText(`uphs-backup-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(payload,null,2),'application/json');logAudit('Backup Data','JSON','Data backup downloaded');}
+
+function restoreData(event){if(isUser()){alert('No permission.');return;}let file=event.target.files[0];event.target.value='';if(!file)return;if(!confirm('Restore will replace local data. Continue?'))return;let reader=new FileReader();reader.onload=function(){try{let p=JSON.parse(reader.result),d=p.data||p;['facilities','departments','users','assets','workers'].forEach(k=>{if(!Array.isArray(d[k]))throw new Error('Missing '+k);});DB.set('facilities',d.facilities);DB.set('departments',d.departments);DB.set('users',d.users);DB.set('assets',d.assets);DB.set('workers',d.workers);DB.set('audit',Array.isArray(d.audit)?d.audit:[]);logAudit('Restore Data',file.name,'Backup restored');refreshAllViews();alert('Data restored successfully.');}catch(e){alert('Restore failed: backup file is not valid.');}};reader.readAsText(file);}
+
+// ===== PRINT =====
+function printAssets(){let assets=getFilteredAssetsForExport(),depts=DB.get('departments'),facs=DB.get('facilities');if(assets.length===0){alert('No assets to print.');return;}let pw=window.open('','_blank'),date=new Date().toLocaleDateString('en-GB');let fF=document.getElementById('filterFacility').value,fD=document.getElementById('filterDept').value,fS=document.getElementById('filterStatus').value;let facN=fF?facs.find(f=>String(f.id)===String(fF))?.name:'All Facilities';let depN=fD?depts.find(d=>String(d.id)===String(fD))?.name:'All Departments';let rows=assets.map(a=>{let d=depts.find(x=>String(x.id)===String(a.deptId))||{name:'N/A'};let f=facs.find(x=>String(x.id)===String(a.facilityId))||{name:'N/A'};return`<tr><td>${escapeHTML(a.refNumber)}</td><td>${escapeHTML(a.name)}</td><td>${escapeHTML(a.type||'')}</td><td>${escapeHTML(f.name)}</td><td>${escapeHTML(d.name)}</td><td>${escapeHTML(a.room||'')}</td><td>${escapeHTML(a.model||'')}</td><td>${escapeHTML(a.serial||'')}</td><td>${escapeHTML(a.manufacturer||'')}</td><td>${escapeHTML(a.qty)}</td><td>${escapeHTML(a.dateEntered)}</td><td>${escapeHTML(a.condition)}</td><td>${escapeHTML(a.status)}</td></tr>`;}).join('');pw.document.write(`<!DOCTYPE html><html><head><title>Asset Report</title><style>body{font-family:Arial,sans-serif;font-size:11px;margin:20px;color:#000}h1{text-align:center;margin:0 0 5px;font-size:18px}h2{text-align:center;margin:0 0 15px;font-size:14px;font-weight:normal}.meta{margin-bottom:15px;font-size:10px}.meta span{margin-right:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:4px;text-align:left}th{background:#ddd}tr:nth-child(even){background:#f5f5f5}@media print{@page{size:A4 landscape;margin:1cm}}</style></head><body><h1>UGANDA POLICE HEALTH SERVICE</h1><h2>Asset Inventory Report</h2><div class="meta"><span><b>Date:</b> ${date}</span><span><b>Facility:</b> ${escapeHTML(facN||'All')}</span><span><b>Dept:</b> ${escapeHTML(depN||'All')}</span><span><b>Status:</b> ${fS||'All'}</span><span><b>Total:</b> ${assets.length}</span><span><b>By:</b> ${escapeHTML(currentUser.username)} (${escapeHTML(currentUser.role)})</span></div><table><thead><tr><th>Ref#</th><th>Equipment</th><th>Type</th><th>Facility</th><th>Dept</th><th>Room</th><th>Model</th><th>Serial#</th><th>Mfr</th><th>Qty</th><th>Date</th><th>Condition</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>`);pw.document.close();}
+
+function printWorkerPage(){let workers=DB.get('workers').filter(w=>String(w.facilityId)===String(currentUser.facilityId));let search=(document.getElementById('workerPageSearch')?.value||'').toLowerCase();if(search)workers=workers.filter(w=>w.name.toLowerCase().includes(search)||w.title.toLowerCase().includes(search)||w.telephone.includes(search));if(workers.length===0){alert('No workers to print.');return;}let pw=window.open('','_blank'),fn=document.getElementById('workerFacilityName').textContent,date=new Date().toLocaleDateString('en-GB');let rows=workers.map(w=>`<tr><td>${escapeHTML(w.name)}</td><td>${escapeHTML(w.title)}</td><td>${escapeHTML(w.responsibility)}</td><td>${escapeHTML(w.telephone)}</td></tr>`).join('');pw.document.write(`<!DOCTYPE html><html><head><title>Health Workers</title><style>body{font-family:Arial,sans-serif;font-size:12px;margin:20px}h1,h2{text-align:center;margin:4px 0}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #333;padding:6px}th{background:#ddd}@media print{@page{size:A4;margin:1.5cm}}</style></head><body><h1>Health Workers Report</h1><h2>${escapeHTML(fn)}</h2><p style="text-align:center;font-size:11px">Date: ${date} | Total: ${workers.length} | By: ${escapeHTML(currentUser.username)}</p><table><thead><tr><th>Name</th><th>Title</th><th>Responsibility</th><th>Telephone</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>`);pw.document.close();}
+
+function printWorkersDashboard(){let workers=DB.get('workers'),facs=DB.get('facilities');if(isUser())workers=workers.filter(w=>String(w.facilityId)===String(currentUser.facilityId));if(workers.length===0){alert('No workers to print.');return;}let pw=window.open('','_blank'),date=new Date().toLocaleDateString('en-GB');let rows=workers.map(w=>{let f=facs.find(x=>String(x.id)===String(w.facilityId))||{name:'N/A'};return`<tr><td>${escapeHTML(w.name)}</td><td>${escapeHTML(w.title)}</td><td>${escapeHTML(w.responsibility)}</td><td>${escapeHTML(w.telephone)}</td><td>${escapeHTML(f.name)}</td></tr>`;}).join('');pw.document.write(`<!DOCTYPE html><html><head><title>All Health Workers</title><style>body{font-family:Arial,sans-serif;font-size:11px;margin:20px}h1{text-align:center}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #333;padding:5px}th{background:#ddd}@media print{@page{size:A4;margin:1cm}}</style></head><body><h1>UGANDA POLICE HEALTH SERVICE – Health Workers</h1><p>Date: ${date} | Total: ${workers.length} | By: ${escapeHTML(currentUser.username)} (${escapeHTML(currentUser.role)})</p><table><thead><tr><th>Name</th><th>Title</th><th>Responsibility</th><th>Telephone</th><th>Facility</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>`);pw.document.close();}
+
+// ===== BOOT =====
+window.onload=function(){
+    try{
+        DB.init();let saved=localStorage.getItem('currentUser');
+        if(saved){try{currentUser=JSON.parse(saved);if(!currentUser||!currentUser.username||!currentUser.role)throw new Error('Bad');initDashboard();showDashboard();setTimeout(()=>{if(navigator.onLine)autoSyncAll();},1500);}catch(e){localStorage.removeItem('currentUser');showLogin();}}
+        else{showLogin();}
+    }catch(e){document.body.innerHTML='<div class="center"><div class="login-box"><h2>Inventory System</h2><p style="color:#c0392b;margin:12px 0">Browser data is damaged.</p><button onclick="localStorage.clear();location.reload()">Reset Local Data</button></div></div>';}
+};
+</script>
+</body>
+</html>
