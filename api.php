@@ -1,97 +1,102 @@
 <?php
-// ===== DATABASE CONNECTION =====
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
-// Details from your InfinityFree Screenshot
+// ====== YOUR DATABASE DETAILS ======
  $host = "sql300.infinityfree.com";
- $user = "if0_41869145_xxxxx"; // Your exact MySQL Username
- $pass = "YOUR_DATABASE_PASSWORD"; // <--- PUT YOUR DATABASE PASSWORD HERE
+ $user = "if0_41869145_xxxxx"; // YOUR USERNAME
+ $pass = "YOUR_DATABASE_PASSWORD"; // YOUR PASSWORD
  $dbname = "if0_41869145_uph";
+// ===================================
 
  $conn = new mysqli($host, $user, $pass, $dbname);
 
 if ($conn->connect_error) {
-    die(json_encode(["success" => false, "error" => "Database Connection Failed: " . $conn->connect_error]));
+    die(json_encode(["success" => false, "error" => "Database Connection failed: " . $conn->connect_error]));
 }
 
-// Read the action requested by the JavaScript
- $action = $_REQUEST['action'] ?? '';
+ $action = $_POST['action'] ?? '';
+ $json_data = isset($_POST['json_data']) ? json_decode($_POST['json_data'], true) : [];
 
-// ===== ACTION: PULL DATA FROM DATABASE TO APP =====
-if ($action === 'pull') {
-    $tables = ['facilities', 'departments', 'users', 'assets', 'workers', 'audit'];
-    $data = [];
-    foreach ($tables as $table) {
-        $result = $conn->query("SELECT * FROM $table");
-        if ($result) {
-            $rows = [];
-            while ($row = $result->fetch_assoc()) {
-                $rows[] = $row;
-            }
-            $data[$table] = $rows;
-        } else {
-            $data[$table] = [];
-        }
-    }
-    echo json_encode(["success" => true, "data" => $data]);
+function respond($success, $id = null, $error = "") {
+    $res = ["success" => $success];
+    if ($id !== null) $res["id"] = $id;
+    if ($error) $res["error"] = $error;
+    echo json_encode($res);
+    exit;
 }
 
-// ===== ACTION: PUSH DATA FROM APP TO DATABASE =====
-if ($action === 'push') {
-    $input = json_decode(file_get_contents('php://input'), true);
-    $table = $conn->real_escape_string($input['table']);
-    $items = $input['data'];
-
-    // Clear existing data in this table before pushing the new updated list
-    $conn->query("TRUNCATE TABLE $table");
-
-    if (empty($items)) {
-        echo json_encode(["success" => true, "message" => "$table cleared"]);
-        exit;
-    }
-
-    // Get the column names from the first item to build the INSERT query
-    $columns = array_keys($items[0]);
-    $colString = implode("`, `", $columns);
-
-    $values = [];
-    foreach ($items as $item) {
-        $valArray = [];
-        foreach ($columns as $col) {
-            $val = isset($item[$col]) ? $item[$col] : '';
-            $valArray[] = "'" . $conn->real_escape_string($val) . "'";
-        }
-        $values[] = "(" . implode(", ", $valArray) . ")";
-    }
-
-    $valString = implode(", ", $values);
-    $sql = "INSERT INTO `$table` (`$colString`) VALUES $valString";
-
-    if ($conn->query($sql)) {
-        echo json_encode(["success" => true, "message" => "$table synced successfully"]);
-    } else {
-        echo json_encode(["success" => false, "error" => $conn->error]);
-    }
+if ($action === 'add_facility') {
+    $name = $conn->real_escape_string($json_data['name'] ?? '');
+    $sql = "INSERT INTO facilities (name) VALUES ('$name')";
+    if ($conn->query($sql)) respond(true, $conn->insert_id);
+    else respond(false, null, $conn->error);
 }
 
-// ===== ACTION: FIX DEFAULT LOGIN (Resets superadmin password to admin123) =====
-if ($action === 'reset_admin') {
-    // Hash matches 'admin123' with salt 'UPHS-AMS-v1'
-    $newHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'; 
-    $sql = "UPDATE users SET passwordHash='$newHash' WHERE username='superadmin'";
-    if ($conn->query($sql)) {
-        echo json_encode(["success" => true, "message" => "Admin password reset to admin123"]);
-    } else {
-        // If update fails, maybe the user doesn't exist in DB yet, insert them
-        $sql = "INSERT INTO users (id, username, passwordHash, role, facilityId, telephone, _sync) 
-                VALUES (1, 'superadmin', '$newHash', 'Super Admin', NULL, '', 1)";
-        $conn->query($sql);
-        echo json_encode(["success" => true, "message" => "Admin user created with password admin123"]);
-    }
+if ($action === 'add_department') {
+    $name = $conn->real_escape_string($json_data['name'] ?? '');
+    $fid = intval($json_data['facilityId'] ?? 0);
+    $sql = "INSERT INTO departments (name, facilityId) VALUES ('$name', $fid)";
+    if ($conn->query($sql)) respond(true, $conn->insert_id);
+    else respond(false, null, $conn->error);
 }
 
- $conn->close();
+if ($action === 'add_user') {
+    $username = $conn->real_escape_string($json_data['username'] ?? '');
+    $passwordHash = $conn->real_escape_string($json_data['passwordHash'] ?? '');
+    $role = $conn->real_escape_string($json_data['role'] ?? '');
+    $fid = !empty($json_data['facilityId']) ? intval($json_data['facilityId']) : 'NULL';
+    $telephone = $conn->real_escape_string($json_data['telephone'] ?? '');
+    $sql = "INSERT INTO users (username, passwordHash, role, facilityId, telephone) VALUES ('$username', '$passwordHash', '$role', $fid, '$telephone')";
+    if ($conn->query($sql)) respond(true, $conn->insert_id);
+    else respond(false, null, $conn->error);
+}
+
+if ($action === 'add_worker') {
+    $name = $conn->real_escape_string($json_data['name'] ?? '');
+    $title = $conn->real_escape_string($json_data['title'] ?? '');
+    $resp = $conn->real_escape_string($json_data['responsibility'] ?? '');
+    $tel = $conn->real_escape_string($json_data['telephone'] ?? '');
+    $fid = intval($json_data['facilityId'] ?? 0);
+    $sql = "INSERT INTO workers (name, title, responsibility, telephone, facilityId) VALUES ('$name', '$title', '$resp', '$tel', $fid)";
+    if ($conn->query($sql)) respond(true, $conn->insert_id);
+    else respond(false, null, $conn->error);
+}
+
+if ($action === 'add_asset') {
+    $ref = $conn->real_escape_string($json_data['refNumber'] ?? '');
+    $name = $conn->real_escape_string($json_data['name'] ?? '');
+    $type = $conn->real_escape_string($json_data['type'] ?? '');
+    $fid = intval($json_data['facilityId'] ?? 0);
+    $did = intval($json_data['deptId'] ?? 0);
+    $room = $conn->real_escape_string($json_data['room'] ?? '');
+    $model = $conn->real_escape_string($json_data['model'] ?? '');
+    $serial = $conn->real_escape_string($json_data['serial'] ?? '');
+    $mfr = $conn->real_escape_string($json_data['manufacturer'] ?? '');
+    $qty = intval($json_data['qty'] ?? 1);
+    $date = $conn->real_escape_string($json_data['dateEntered'] ?? '');
+    $cond = $conn->real_escape_string($json_data['conditionVal'] ?? '');
+    $status = $conn->real_escape_string($json_data['status'] ?? '');
+    $by = $conn->real_escape_string($json_data['enteredBy'] ?? '');
+    
+    $sql = "INSERT INTO assets (refNumber, name, type, facilityId, deptId, room, model, serial, manufacturer, qty, dateEntered, conditionVal, status, enteredBy) 
+            VALUES ('$ref', '$name', '$type', $fid, $did, '$room', '$model', '$serial', '$mfr', $qty, '$date', '$cond', '$status', '$by')";
+    if ($conn->query($sql)) respond(true, $conn->insert_id);
+    else respond(false, null, $conn->error);
+}
+
+if ($action === 'add_audit') {
+    $action_name = $conn->real_escape_string($json_data['action'] ?? '');
+    $record = $conn->real_escape_string($json_data['record'] ?? '');
+    $details = $conn->real_escape_string($json_data['details'] ?? '');
+    $username = $conn->real_escape_string($json_data['username'] ?? '');
+    $role = $conn->real_escape_string($json_data['role'] ?? '');
+    $sql = "INSERT INTO audit (action, record, details, username, role) VALUES ('$action_name', '$record', '$details', '$username', '$role')";
+    if ($conn->query($sql)) respond(true, $conn->insert_id);
+    else respond(false, null, $conn->error);
+}
+
+respond(false, null, "Invalid action");
 ?>
