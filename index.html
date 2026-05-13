@@ -594,7 +594,7 @@ async function resetPassword(){
     showLogin();
 }
 
-// ===== SYNC ENGINE =====
+// ===== SYNC ENGINE (FIXED FOR 405 ERROR) =====
 const SYNC_ORDER=['facilities','departments','users','workers','assets','audit'];
 let isAutoSyncing=false;
 
@@ -617,14 +617,35 @@ async function syncTable(table){
         if(row.deptId&&isTempId(row.deptId))continue;
         try{
             const payload=buildSyncPayload(table,row);
-            const endpoint=getSyncEndpoint(table);
-            const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+            const actionName = getSyncAction(table);
+            
+            // FIX: Send as URL-encoded form data to bypass InfinityFree 405 error
+            const params = new URLSearchParams();
+            params.append('action', actionName);
+            params.append('json_data', JSON.stringify(payload));
+
+            const res=await fetch('api.php', {
+                method:'POST',
+                headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                body: params.toString()
+            });
+            
             if(!res.ok)throw new Error('HTTP '+res.status);
             const result=await res.json();
             if(!result.success)throw new Error(result.error);
+            
             let data=DB.get(table);
             const idx=data.findIndex(r=>r.id===row.id);
-            if(idx!==-1){const oldId=data[idx].id;data[idx].id=result.id;data[idx]._sync=true;delete data[idx]._created_at;DB.set(table,data);updateAllForeignKeys(table,oldId,result.id);}
+            if(idx!==-1){
+                const oldId=data[idx].id;
+                if(result.id) { // Update with real database ID
+                    data[idx].id=result.id;
+                    updateAllForeignKeys(table,oldId,result.id);
+                }
+                data[idx]._sync=true;
+                delete data[idx]._created_at;
+                DB.set(table,data);
+            }
         }catch(e){console.warn('[Sync]',table,row.id,e.message);}
     }
 }
@@ -641,7 +662,7 @@ function buildSyncPayload(table,row){
     }
 }
 
-function getSyncEndpoint(table){return{facilities:'API/facility_add.php',departments:'API/department_add.php',users:'API/user_add.php',workers:'API/worker_add.php',assets:'API/asset_add.php',audit:'API/audit_add.php'}[table]||'';}
+function getSyncAction(table){return{facilities:'add_facility',departments:'add_department',users:'add_user',workers:'add_worker',assets:'add_asset',audit:'add_audit'}[table]||'';}
 
 function updateAllForeignKeys(parentTable,oldId,newId){
     const fkMap={facilities:'facilityId',departments:'deptId'};const fk=fkMap[parentTable];if(!fk)return;
@@ -715,8 +736,6 @@ function initDashboard(){
     document.getElementById('currentRole').innerText=currentUser.role;
     document.getElementById('dashFacilityName').innerText=fac?fac.name+' – AMS':'System – AMS';
 
-    // === ROLE-BASED UI ===
-    // User: hide Users tab, Audit tab, Backup, Restore
     if(isUser()){
         document.getElementById('tabUsers').style.display='none';
         document.getElementById('tabAudit').style.display='none';
@@ -729,10 +748,7 @@ function initDashboard(){
         document.getElementById('btnRestore').style.display='';
     }
 
-    // + Add Admin: only Super Admin
     document.getElementById('addAdminBtn').style.display=isSuperAdmin()?'inline-block':'none';
-
-    // + Add Facility: Admin and Super Admin only (User cannot add)
     document.getElementById('addFacilityBtn').style.display=isUser()?'none':'inline-block';
 
     populateAllSelects();loadAssets();loadDepartments();loadFacilities();loadWorkers();loadUsers();loadAudit();loadStats();
@@ -841,7 +857,6 @@ function loadWorkerPage(){
     let tbody=document.getElementById('workerPageTableBody');tbody.innerHTML='';
     if(workers.length===0){tbody.innerHTML='<tr><td colspan="5" style="text-align:center">No workers found</td></tr>';return;}
     workers.forEach(w=>{
-        // User cannot delete workers; Admin can delete in own facility; Super Admin can delete any
         let canDel=isAdmin()||isSuperAdmin();
         let delBtn=canDel?`<button class="btn-sm btn-danger" onclick="deleteWorker('${w.id}','page')">Del</button>`:'<span style="color:#999;font-size:12px">View Only</span>';
         tbody.innerHTML+=`<tr><td>${escapeHTML(w.name)}</td><td>${escapeHTML(w.title)}</td><td>${escapeHTML(w.responsibility)}</td><td>${escapeHTML(w.telephone)}</td><td>${delBtn}</td></tr>`;
@@ -855,7 +870,6 @@ function loadWorkers(){
     if(fF)workers=workers.filter(w=>String(w.facilityId)===String(fF));if(fN)workers=workers.filter(w=>w.name.toLowerCase().includes(fN));if(fT)workers=workers.filter(w=>w.title.toLowerCase().includes(fT));if(fR)workers=workers.filter(w=>w.responsibility.toLowerCase().includes(fR));
     if(workers.length===0){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#888;padding:20px">No workers found.</td></tr>';return;}
     workers.forEach(w=>{let f=facs.find(x=>String(x.id)===String(w.facilityId))||{name:'N/A'};let sync=w._sync!==false?'':' ⏳';
-        // User cannot delete; Admin can delete in own facility; Super Admin can delete any
         let canDel=false;if(isSuperAdmin())canDel=true;if(isAdmin()&&String(w.facilityId)===String(currentUser.facilityId))canDel=true;
         let delBtn=canDel?`<button class="btn-sm btn-danger" onclick="deleteWorker('${w.id}','tab')">Del</button>`:'<span style="color:#999;font-size:12px">—</span>';
         tbody.innerHTML+=`<tr><td>${escapeHTML(w.name)}${sync}</td><td>${escapeHTML(w.title)}</td><td>${escapeHTML(w.responsibility)}</td><td>${escapeHTML(w.telephone)}</td><td>${escapeHTML(f.name)}</td><td>${delBtn}</td></tr>`;
